@@ -13,6 +13,7 @@ use linkerd_app_core::{
 };
 use linkerd_server_policy::{grpc, http, route::RouteMatch};
 use std::{sync::Arc, task};
+use linkerd_server_policy::http::Filter;
 
 #[cfg(test)]
 mod tests;
@@ -262,13 +263,19 @@ fn apply_http_filters<B>(
     // TODO Do any metrics apply here?
     for filter in &route.filters {
         match filter {
-            http::Filter::InjectFailure(fail) => {
+            Filter::InjectFailure(fail) => {
                 if let Some(http::filter::FailureResponse { status, message }) = fail.apply() {
                     return Err(HttpRouteInjectedFailure { status, message }.into());
                 }
-            }
+            },
 
-            http::Filter::Redirect(redir) => match redir.apply(req.uri(), &r#match) {
+            Filter::RateLimiter(fail) => {
+                if let Some(http::filter::RateLimiterFailureResponse { status, message }) = fail.apply() {
+                    return Err(HttpRouteInjectedFailure { status, message }.into());
+                }
+            },
+
+            Filter::Redirect(redir) => match redir.apply(req.uri(), &r#match) {
                 Ok(Some(http::filter::Redirection { status, location })) => {
                     return Err(HttpRouteRedirect { status, location }.into());
                 }
@@ -282,9 +289,10 @@ fn apply_http_filters<B>(
                 }
             },
 
-            http::Filter::RequestHeaders(rh) => {
+            Filter::RequestHeaders(rh) => {
                 rh.apply(req.headers_mut());
             }
+
         }
     }
 

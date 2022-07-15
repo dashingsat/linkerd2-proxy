@@ -2,6 +2,8 @@ use super::*;
 use crate::policy::{Authentication, Authorization, Meta, Protocol, ServerPolicy};
 use linkerd_app_core::{svc::Service, Infallible};
 use std::sync::Arc;
+use std::time::Duration;
+use linkerd_server_policy::http::filter::rate_limiter::Configuration;
 
 macro_rules! conn {
     ($client:expr, $dst:expr) => {{
@@ -260,6 +262,68 @@ async fn http_filter_inject_failure() {
         *err.downcast_ref::<HttpRouteInjectedFailure>().unwrap(),
         HttpRouteInjectedFailure {
             status: ::http::StatusCode::BAD_REQUEST,
+            message: "oopsie".into(),
+        }
+    );
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn http_filter_rate_limiter() {
+    use linkerd_server_policy::http::{filter, r#match::MatchRequest, Filter, Policy, Route, Rule};
+
+    let rmeta = Arc::new(Meta::Resource {
+        group: "gateway.networking.k8s.io".into(),
+        kind: "httproute".into(),
+        name: "testrt".into(),
+    });
+    let proto = Protocol::Http1(Arc::new([Route {
+        hosts: vec![],
+        rules: vec![Rule {
+            matches: vec![MatchRequest {
+                method: Some(::http::Method::GET),
+                ..MatchRequest::default()
+            }],
+            policy: Policy {
+                authorizations: Arc::new([Authorization {
+                    authentication: Authentication::Unauthenticated,
+                    networks: vec![std::net::IpAddr::from([192, 168, 3, 3]).into()],
+                    meta: Arc::new(Meta::Resource {
+                        group: "policy.linkerd.io".into(),
+                        kind: "server".into(),
+                        name: "testsaz".into(),
+                    }),
+                }]),
+                filters: vec![Filter::RateLimiter(filter::RateLimiter {
+                    configuration: filter::RateLimitConfiguration{
+                        threshold: 0,
+                        duration: Duration::from_secs(1)
+                    },
+                    response: filter::RateLimiterFailureResponse {
+                        status: ::http::StatusCode::TOO_MANY_REQUESTS,
+                        message: "oopsie".into(),
+                    },
+                })],
+                meta: rmeta.clone(),
+            },
+        }],
+    }]));
+    let inner = |_: HttpRoutePermit,
+                 _: ::http::Request<hyper::Body>|
+                 -> Result<::http::Response<hyper::Body>> { unreachable!() };
+    let (mut svc, _tx) = new_svc!(proto, conn!(), inner);
+
+    let err = svc
+        .call(
+            ::http::Request::builder()
+                .body(hyper::Body::default())
+                .unwrap(),
+        )
+        .await
+        .expect_err("fails");
+    assert_eq!(
+        *err.downcast_ref::<HttpRouteInjectedFailure>().unwrap(),
+        HttpRouteInjectedFailure {
+            status: ::http::StatusCode::TOO_MANY_REQUESTS,
             message: "oopsie".into(),
         }
     );
