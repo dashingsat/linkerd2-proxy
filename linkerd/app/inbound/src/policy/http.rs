@@ -13,7 +13,8 @@ use linkerd_app_core::{
 };
 use linkerd_server_policy::{grpc, http, route::RouteMatch};
 use std::{sync::Arc, task};
-use linkerd_server_policy::http::Filter;
+//use linkerd_app_core::svc::Param;
+//use linkerd_server_policy::http::Filter;
 
 #[cfg(test)]
 mod tests;
@@ -79,6 +80,10 @@ pub struct GrpcRouteInjectedFailure {
     pub code: u16,
     pub message: Arc<str>,
 }
+
+#[derive(Debug, thiserror::Error)]
+#[error("invalid server policy: {0}")]
+pub struct HttpInvalidPolicy(&'static str);
 
 // === impl NewHttpPolicy ===
 
@@ -263,19 +268,19 @@ fn apply_http_filters<B>(
     // TODO Do any metrics apply here?
     for filter in &route.filters {
         match filter {
-            Filter::InjectFailure(fail) => {
+            http::Filter::InjectFailure(fail) => {
                 if let Some(http::filter::FailureResponse { status, message }) = fail.apply() {
                     return Err(HttpRouteInjectedFailure { status, message }.into());
                 }
             },
 
-            Filter::RateLimiter(fail) => {
+            http::Filter::RateLimiter(fail) => {
                 if let Some(http::filter::RateLimiterFailureResponse { status, message }) = fail.apply() {
                     return Err(HttpRouteInjectedFailure { status, message }.into());
                 }
             },
 
-            Filter::Redirect(redir) => match redir.apply(req.uri(), &r#match) {
+            http::Filter::Redirect(redir) => match redir.apply(req.uri(), &r#match) {
                 Ok(Some(http::filter::Redirection { status, location })) => {
                     return Err(HttpRouteRedirect { status, location }.into());
                 }
@@ -289,10 +294,13 @@ fn apply_http_filters<B>(
                 }
             },
 
-            Filter::RequestHeaders(rh) => {
+            http::Filter::RequestHeaders(rh) => {
                 rh.apply(req.headers_mut());
             }
 
+            http::Filter::InternalError(msg) => {
+                return Err(HttpInvalidPolicy(msg).into());
+            }
         }
     }
 
@@ -310,6 +318,10 @@ fn apply_grpc_filters<B>(route: &grpc::Policy, req: &mut ::http::Request<B>) -> 
 
             grpc::Filter::RequestHeaders(rh) => {
                 rh.apply(req.headers_mut());
+            }
+
+            grpc::Filter::InternalError(msg) => {
+                return Err(HttpInvalidPolicy(msg).into());
             }
         }
     }

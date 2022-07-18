@@ -869,7 +869,8 @@ dependencies = [
  "linkerd-server-policy",
  "linkerd-tonic-watch",
  "linkerd-tracing",
- "linkerd2-proxy-api 0.5.0",
+ "linkerd2-proxy-api",
+ "once_cell",
  "parking_lot",
  "thiserror",
  "tokio",
@@ -897,7 +898,7 @@ dependencies = [
  "linkerd-meshtls",
  "linkerd-metrics",
  "linkerd-tracing",
- "linkerd2-proxy-api 0.6.1",
+ "linkerd2-proxy-api",
  "parking_lot",
  "regex",
  "rustls-pemfile",
@@ -1278,7 +1279,7 @@ dependencies = [
  "linkerd-proxy-core",
  "linkerd-stack",
  "linkerd-tls",
- "linkerd2-proxy-api 0.6.1",
+ "linkerd2-proxy-api",
  "pin-project",
  "prost",
  "tonic",
@@ -1369,7 +1370,7 @@ dependencies = [
  "linkerd-identity",
  "linkerd-metrics",
  "linkerd-stack",
- "linkerd2-proxy-api 0.6.1",
+ "linkerd2-proxy-api",
  "parking_lot",
  "pin-project",
  "thiserror",
@@ -1406,7 +1407,7 @@ dependencies = [
  "linkerd-proxy-http",
  "linkerd-stack",
  "linkerd-tls",
- "linkerd2-proxy-api 0.5.0",
+ "linkerd2-proxy-api",
  "parking_lot",
  "pin-project",
  "prost-types",
@@ -1484,7 +1485,7 @@ dependencies = [
  "http",
  "ipnet",
  "linkerd-http-route",
- "linkerd2-proxy-api 0.5.0",
+ "linkerd2-proxy-api",
  "quickcheck",
  "thiserror",
 ]
@@ -1505,7 +1506,7 @@ dependencies = [
  "linkerd-proxy-api-resolve",
  "linkerd-stack",
  "linkerd-tonic-watch",
- "linkerd2-proxy-api 0.6.1",
+ "linkerd2-proxy-api",
  "pin-project",
  "prost-types",
  "quickcheck",
@@ -1700,21 +1701,6 @@ name = "linkerd2-proxy-api"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12c93aba8dbdc8f465de51ef08c5e1938790ea0ae7390d66b3f4d2d36c297d0b"
-dependencies = [
- "h2",
- "http",
- "ipnet",
- "prost",
- "prost-types",
- "quickcheck",
- "thiserror",
- "tonic",
-]
-
-[[package]]
-name = "linkerd2-proxy-api"
-version = "0.6.1"
-source = "git+https://github.com/dashingsat/linkerd2-proxy-api?branch=feature/add_rate_limiting_config#9678efc68e1c385d9de5de1c474ac79e08cdb28e"
 dependencies = [
  "h2",
  "http",
