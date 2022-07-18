@@ -5,6 +5,7 @@ struct TestBuilder {
     server: server::Server,
     routes: Vec<controller::RouteBuilder>,
     budget: Option<controller::pb::RetryBudget>,
+    rate_limit_config: Option<controller::pb::RateLimiter>,
     default_routes: bool,
 }
 
@@ -35,6 +36,7 @@ impl TestBuilder {
                     .label("load_profile", "test"),
             ],
             budget: Some(controller::retry_budget(Duration::from_secs(1), 0.1, 1)),
+            rate_limit_config: Some(controller::rate_limit_config(10, 5)),
             default_routes: true,
         }
     }
@@ -92,7 +94,7 @@ impl TestBuilder {
         dst_tx.send_addr(srv.addr);
 
         let profile_tx = ctrl.profile_tx(srv.addr.to_string());
-        profile_tx.send(controller::profile(self.routes, self.budget, vec![], host));
+        profile_tx.send(controller::profile(self.routes, self.budget, vec![], host, self.rate_limit_config));
 
         let ctrl = ctrl.run().await;
         let proxy = proxy::new().controller(ctrl).outbound(srv).run().await;
@@ -124,47 +126,47 @@ impl TestBuilder {
                 .body("slept".into())
                 .unwrap()
         })
-        .route_async("/0.5", move |req| {
-            let fail = counter.fetch_add(1, Ordering::Relaxed) % 2 == 0;
-            async move {
-                // Read the entire body before responding, so that the
-                // client doesn't fail when writing it out.
-                let _body = hyper::body::to_bytes(req.into_body()).await;
-                tracing::debug!(body = ?_body.as_ref().map(|body| body.len()), "recieved body");
-                Ok::<_, Error>(if fail {
+            .route_async("/0.5", move |req| {
+                let fail = counter.fetch_add(1, Ordering::Relaxed) % 2 == 0;
+                async move {
+                    // Read the entire body before responding, so that the
+                    // client doesn't fail when writing it out.
+                    let _body = hyper::body::to_bytes(req.into_body()).await;
+                    tracing::debug!(body = ?_body.as_ref().map(|body| body.len()), "recieved body");
+                    Ok::<_, Error>(if fail {
+                        Response::builder().status(533).body("nope".into()).unwrap()
+                    } else {
+                        Response::builder()
+                            .status(200)
+                            .body("retried".into())
+                            .unwrap()
+                    })
+                }
+            })
+            .route_fn("/0.5/sleep", move |_req| {
+                ::std::thread::sleep(Duration::from_secs(1));
+                if counter2.fetch_add(1, Ordering::Relaxed) % 2 == 0 {
                     Response::builder().status(533).body("nope".into()).unwrap()
                 } else {
                     Response::builder()
                         .status(200)
                         .body("retried".into())
                         .unwrap()
-                })
-            }
-        })
-        .route_fn("/0.5/sleep", move |_req| {
-            ::std::thread::sleep(Duration::from_secs(1));
-            if counter2.fetch_add(1, Ordering::Relaxed) % 2 == 0 {
-                Response::builder().status(533).body("nope".into()).unwrap()
-            } else {
-                Response::builder()
-                    .status(200)
-                    .body("retried".into())
-                    .unwrap()
-            }
-        })
-        .route_fn("/0.5/100KB", move |_req| {
-            if counter3.fetch_add(1, Ordering::Relaxed) % 2 == 0 {
-                Response::builder()
-                    .status(533)
-                    .body(vec![b'x'; 1024 * 100].into())
-                    .unwrap()
-            } else {
-                Response::builder()
-                    .status(200)
-                    .body("retried".into())
-                    .unwrap()
-            }
-        })
+                }
+            })
+            .route_fn("/0.5/100KB", move |_req| {
+                if counter3.fetch_add(1, Ordering::Relaxed) % 2 == 0 {
+                    Response::builder()
+                        .status(533)
+                        .body(vec![b'x'; 1024 * 100].into())
+                        .unwrap()
+                } else {
+                    Response::builder()
+                        .status(200)
+                        .body("retried".into())
+                        .unwrap()
+                }
+            })
     }
 
     async fn load_profile(client: &client::Client, metrics: &client::Client) {
@@ -231,6 +233,27 @@ mod cross_version {
     }
 
     pub(super) async fn retry_with_small_post_body(version: server::Server) {
+        let test = TestBuilder::new(version)
+            .with_profile_route(
+                controller::route()
+                    .request_any()
+                    .response_failure(500..600)
+                    .retryable(true),
+            )
+            .run()
+            .await;
+
+        let client = &test.client;
+        let req = client
+            .request_builder("/0.5")
+            .method(http::Method::POST)
+            .body("req has a body".into())
+            .unwrap();
+        let res = client.request_body(req).await;
+        assert_eq!(res.status(), 200);
+    }
+
+    pub(super) async fn retry_with_small_post_body_for_rate_limiting(version: server::Server) {
         let test = TestBuilder::new(version)
             .with_profile_route(
                 controller::route()
@@ -531,7 +554,8 @@ mod http1 {
         server::http1() =>
         // retry_if_profile_allows,
         // retry_uses_budget,
-        retry_with_small_post_body,
+        retry_with_small_post_body_for_rate_limiting,
+        //retry_with_small_post_body,
         // retry_with_small_put_body,
         // retry_without_content_length,
         // does_not_retry_if_request_does_not_match,
@@ -589,6 +613,7 @@ mod http2 {
 mod grpc_retry {
     use super::*;
     use http::header::{HeaderMap, HeaderName, HeaderValue};
+
     static GRPC_STATUS: HeaderName = HeaderName::from_static("grpc-status");
     static GRPC_STATUS_OK: HeaderValue = HeaderValue::from_static("0");
     static GRPC_STATUS_UNAVAILABLE: HeaderValue = HeaderValue::from_static("14");
@@ -796,6 +821,7 @@ mod grpc_retry {
         tracing::info!(?data);
         data
     }
+
     async fn trailers(body: &mut hyper::Body) -> http::HeaderMap {
         let trailers = body
             .trailers()

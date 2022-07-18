@@ -505,9 +505,10 @@ pub fn destination_does_not_exist() -> pb::Update {
 
 pub fn profile<I>(
     routes: I,
-    retry_budget: Option<pb::RetryBudget>,
+   retry_budget: Option<pb::RetryBudget>,
     dst_overrides: Vec<pb::WeightedDst>,
     fqn: impl Into<String>,
+    rate_limiter_config: Option<pb::RateLimiter>,
 ) -> pb::DestinationProfile
 where
     I: IntoIterator,
@@ -519,7 +520,9 @@ where
         retry_budget,
         dst_overrides,
         fully_qualified_name: fqn.into(),
-        ..Default::default()
+        rate_limiter: rate_limiter_config,
+        opaque_protocol: false,
+        endpoint: None
     }
 }
 
@@ -534,6 +537,18 @@ pub fn retry_budget(
         min_retries_per_second,
     }
 }
+
+pub fn rate_limit_config(
+    time_in_seconds: u64,
+    threshold_max_count: u32,
+) -> pb::RateLimiter {
+    pb::RateLimiter {
+        threshold: threshold_max_count ,
+        duration: Some(Duration::from_secs(time_in_seconds).into()) ,
+    }
+}
+
+
 
 pub fn dst_override(authority: String, weight: u32) -> pb::WeightedDst {
     pb::WeightedDst { authority, weight }
