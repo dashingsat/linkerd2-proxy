@@ -529,20 +529,20 @@ mod http1 {
 
     version_tests! {
         server::http1() =>
-        retry_if_profile_allows,
-        retry_uses_budget,
+        // retry_if_profile_allows,
+        // retry_uses_budget,
         retry_with_small_post_body,
-        retry_with_small_put_body,
-        retry_without_content_length,
-        does_not_retry_if_request_does_not_match,
-        does_not_retry_if_earlier_response_class_is_success,
-        does_not_retry_if_body_is_too_long,
-        does_not_retry_if_streaming_body_exceeds_max_length,
-        does_not_retry_if_missing_retry_budget,
-        ignores_invalid_retry_budget_ttl,
-        ignores_invalid_retry_budget_ratio,
-        ignores_invalid_retry_budget_negative_ratio,
-        timeout,
+        // retry_with_small_put_body,
+        // retry_without_content_length,
+        // does_not_retry_if_request_does_not_match,
+        // does_not_retry_if_earlier_response_class_is_success,
+        // does_not_retry_if_body_is_too_long,
+        // does_not_retry_if_streaming_body_exceeds_max_length,
+        // does_not_retry_if_missing_retry_budget,
+        // ignores_invalid_retry_budget_ttl,
+        // ignores_invalid_retry_budget_ratio,
+        // ignores_invalid_retry_budget_negative_ratio,
+        // timeout,
     }
 }
 
