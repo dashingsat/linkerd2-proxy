@@ -22,13 +22,13 @@ pub struct Configuration {
 }
 
 impl<T: Clone> RateLimiter<T> {
-    pub fn apply(&self) -> Option<T> {
-        if Self::check_for_rate_limiting(&self.configuration) {
+    pub fn apply(&self, path: &str) -> Option<T> {
+        if Self::check_for_rate_limiting(&self.configuration, path) {
            return Some(self.response.clone())
         }
         None
     }
-    fn check_for_rate_limiting(_configuration: &Configuration) -> bool {
+    fn check_for_rate_limiting(_configuration: &Configuration, path: &str) -> bool {
       true
     }
 }

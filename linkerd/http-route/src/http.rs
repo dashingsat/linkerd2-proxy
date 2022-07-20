@@ -2,6 +2,7 @@ pub mod filter;
 pub mod r#match;
 #[cfg(test)]
 mod tests;
+mod rate_limiter_cache;
 
 pub use self::r#match::{HostMatch, MatchHeader, MatchHost, MatchRequest};
 
