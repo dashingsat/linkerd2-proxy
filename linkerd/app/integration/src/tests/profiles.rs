@@ -5,7 +5,6 @@ struct TestBuilder {
     server: server::Server,
     routes: Vec<controller::RouteBuilder>,
     budget: Option<controller::pb::RetryBudget>,
-    rate_limit_config: Option<controller::pb::RateLimiter>,
     default_routes: bool,
 }
 
@@ -36,7 +35,6 @@ impl TestBuilder {
                     .label("load_profile", "test"),
             ],
             budget: Some(controller::retry_budget(Duration::from_secs(1), 0.1, 1)),
-            rate_limit_config: Some(controller::rate_limit_config(10, 5)),
             default_routes: true,
         }
     }
@@ -94,7 +92,7 @@ impl TestBuilder {
         dst_tx.send_addr(srv.addr);
 
         let profile_tx = ctrl.profile_tx(srv.addr.to_string());
-        profile_tx.send(controller::profile(self.routes, self.budget, vec![], host, self.rate_limit_config));
+        profile_tx.send(controller::profile(self.routes, self.budget, vec![], host));
 
         let ctrl = ctrl.run().await;
         let proxy = proxy::new().controller(ctrl).outbound(srv).run().await;
@@ -259,7 +257,9 @@ mod cross_version {
                 controller::route()
                     .request_any()
                     .response_failure(500..600)
-                    .retryable(true),
+                    .retryable(true)
+                    .rate_limiter(5,10)
+                ,
             )
             .run()
             .await;
@@ -566,7 +566,7 @@ mod http1 {
         // ignores_invalid_retry_budget_ttl,
         // ignores_invalid_retry_budget_ratio,
         // ignores_invalid_retry_budget_negative_ratio,
-        // timeout,
+        //timeout,
     }
 }
 

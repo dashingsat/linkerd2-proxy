@@ -8,10 +8,12 @@ use std::collections::{HashMap, VecDeque};
 use std::net::IpAddr;
 use std::ops::{Bound, RangeBounds};
 use std::sync::Arc;
+use linkerd2_proxy_api::destination::RateLimiter;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tonic as grpc;
 use tracing::instrument::Instrument;
+
 
 pub fn new() -> Controller {
     Controller::new()
@@ -508,7 +510,6 @@ pub fn profile<I>(
    retry_budget: Option<pb::RetryBudget>,
     dst_overrides: Vec<pb::WeightedDst>,
     fqn: impl Into<String>,
-    rate_limiter_config: Option<pb::RateLimiter>,
 ) -> pb::DestinationProfile
 where
     I: IntoIterator,
@@ -520,9 +521,7 @@ where
         retry_budget,
         dst_overrides,
         fully_qualified_name: fqn.into(),
-        rate_limiter: rate_limiter_config,
-        opaque_protocol: false,
-        endpoint: None
+        ..Default::default()
     }
 }
 
@@ -537,18 +536,6 @@ pub fn retry_budget(
         min_retries_per_second,
     }
 }
-
-pub fn rate_limit_config(
-    time_in_seconds: u64,
-    threshold_max_count: u32,
-) -> pb::RateLimiter {
-    pb::RateLimiter {
-        threshold: threshold_max_count ,
-        duration: Some(Duration::from_secs(time_in_seconds).into()) ,
-    }
-}
-
-
 
 pub fn dst_override(authority: String, weight: u32) -> pb::WeightedDst {
     pb::WeightedDst { authority, weight }
@@ -623,6 +610,15 @@ impl RouteBuilder {
 
     pub fn timeout(mut self, dur: Duration) -> Self {
         self.route.timeout = Some(dur.into());
+        self
+    }
+
+    pub fn rate_limiter(mut self, request_threshold_count: u32, time_window_in_seconds: u64 ) -> Self{
+        self.route.rate_limiter = Some(RateLimiter{
+            request_threshold_count,
+            time_window: Some(Duration::from_secs(time_window_in_seconds).into()) ,
+            burst_percentage: 0.0
+        });
         self
     }
 }

@@ -8,7 +8,7 @@ publish = false
 
 [dependencies]
 futures = { version = "0.3", default-features = false }
-linkerd2-proxy-api = { git = "https://github.com/dashingsat/linkerd2-proxy-api" , branch =  "feature/add_rate_limiting_config", features = [
+linkerd2-proxy-api = { git = "https://github.com/dashingsat/linkerd2-proxy-api" , branch =  "dashsa/feature/rate_limit", features = [
     "identity"
 ] }
 linkerd-error = { path = "../../error" }

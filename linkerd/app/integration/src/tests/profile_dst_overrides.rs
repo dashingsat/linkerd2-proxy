@@ -44,7 +44,7 @@ fn profile(stage: &str, overrides: Vec<pb::WeightedDst>) -> pb::DestinationProfi
             .request_path("/load-profile")
             .label("load_profile", stage),
         controller::route().request_any(),
-    ], None, overrides, "apex.svc.cluster.local", None)
+    ], None, overrides, "apex.svc.cluster.local")
 }
 
 async fn wait_for_profile_stage(client: &client::Client, metrics: &client::Client, stage: &str) {

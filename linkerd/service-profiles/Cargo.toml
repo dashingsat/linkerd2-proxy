@@ -22,7 +22,7 @@ linkerd-http-box = { path = "../http-box" }
 linkerd-proxy-api-resolve = { path = "../proxy/api-resolve" }
 linkerd-stack = { path = "../stack" }
 linkerd-tonic-watch = { path = "../tonic-watch" }
-linkerd2-proxy-api = { git = "https://github.com/dashingsat/linkerd2-proxy-api" , branch =  "feature/add_rate_limiting_config", features = [
+linkerd2-proxy-api = { git = "https://github.com/dashingsat/linkerd2-proxy-api" , branch =  "dashsa/feature/rate_limit", features = [
     "destination",
     "arbitrary",
     "identity",
@@ -41,7 +41,7 @@ tracing = "0.1"
 pin-project = "1"
 
 [dev-dependencies]
-linkerd2-proxy-api = { git = "https://github.com/dashingsat/linkerd2-proxy-api" , branch =  "feature/add_rate_limiting_config", features = [
+linkerd2-proxy-api = { git = "https://github.com/dashingsat/linkerd2-proxy-api" , branch =  "dashsa/feature/rate_limit", features = [
     "destination",
     "arbitrary",
     "identity",
