@@ -2,6 +2,7 @@ use super::*;
 use crate::policy::{Authentication, Authorization, Meta, Protocol, ServerPolicy};
 use linkerd_app_core::{svc::Service, Infallible};
 use std::sync::Arc;
+use std::thread;
 use std::time::Duration;
 use linkerd_server_policy::http::filter::rate_limiter::Configuration;
 
@@ -307,10 +308,19 @@ async fn http_filter_rate_limiter() {
             },
         }],
     }]));
-    let inner = |_: HttpRoutePermit,
+
+    let inner = |permit: HttpRoutePermit, req: ::http::Request<hyper::Body>| -> Result<_> {
+        let mut rsp = ::http::Response::builder()
+            .body(hyper::Body::default())
+            .unwrap();
+        rsp.extensions_mut().insert(permit);
+        Ok(rsp)
+    };
+    let (mut svc, _tx) = new_svc!(proto, conn!(), inner);
+    /*let inner = |_: HttpRoutePermit,
                  _: ::http::Request<hyper::Body>|
                  -> Result<::http::Response<hyper::Body>> { unreachable!() };
-    let (mut svc, _tx) = new_svc!(proto, conn!(), inner);
+    let (mut svc, _tx) = new_svc!(proto, conn!(), inner);*/
 
     let err = svc
         .call(
@@ -319,9 +329,28 @@ async fn http_filter_rate_limiter() {
                 .unwrap(),
         )
         .await
-        .expect_err("fails");
-    assert_eq!(
+        .expect("serves");
+   /* assert_eq!(
         *err.downcast_ref::<HttpRouteInjectedFailure>().unwrap(),
+        HttpRouteInjectedFailure {
+            status: ::http::StatusCode::TOO_MANY_REQUESTS,
+            message: "oopsie".into(),
+        }
+    );*/
+
+    //thread::sleep(Duration::from_secs(2));
+
+    let err2 = svc
+        .call(
+            ::http::Request::builder().uri("https://www.rust-lang.org/").method("GET")
+                .body(hyper::Body::default())
+                .unwrap(),
+        )
+        .await
+        .expect_err("fails");
+
+    assert_eq!(
+        *err2.downcast_ref::<HttpRouteInjectedFailure>().unwrap(),
         HttpRouteInjectedFailure {
             status: ::http::StatusCode::TOO_MANY_REQUESTS,
             message: "oopsie".into(),

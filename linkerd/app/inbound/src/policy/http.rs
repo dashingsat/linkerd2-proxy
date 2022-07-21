@@ -270,9 +270,19 @@ fn apply_http_filters<B>(
                 }
             },
 
-            Filter::RateLimiter(fail) => {
-                if let Some(http::filter::RateLimiterFailureResponse { status, message }) = fail.apply(req.uri().path()) {
+        /*Filter::RateLimiter(fail) => {
+            if let Some(http::filter::RateLimiterFailureResponse { status, message }) = fail.apply(req.uri().path()) {
+                return Err(HttpRouteInjectedFailure { status, message }.into());
+            }
+        },*/
+
+            Filter::RateLimiter(fail) => match fail.apply(req.uri().path()) {
+                Some(http::filter::RateLimiterFailureResponse { status, message }) => {
                     return Err(HttpRouteInjectedFailure { status, message }.into());
+                }
+
+                None => {
+                    tracing::debug!("Ignoring irrelevant redirect");
                 }
             },
 

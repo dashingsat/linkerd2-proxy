@@ -30,7 +30,7 @@ pub struct Configuration {
 
 impl<T: Clone> RateLimiter<T> {
     pub fn apply(&self, path: &str) -> Option<T> {
-        if Self::check_for_rate_limiting(&self.configuration, path, Duration::from_secs(1), 1, 60, "service") {
+        if !Self::check_for_rate_limiting(&self.configuration, path, Duration::from_secs(1), 1, 60, "service") {
            return Some(self.response.clone())
         }
         None
