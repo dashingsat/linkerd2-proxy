@@ -5,8 +5,10 @@ use linkerd_dns_name::Name;
 use linkerd_proxy_api_resolve::pb as resolve;
 use regex::Regex;
 use std::{str::FromStr, sync::Arc, time::Duration};
+use linkerd2_proxy_api::destination::RateLimiter;
 use tower::retry::budget::Budget;
 use tracing::warn;
+use crate::http::{RateLimitingConfig, Route};
 
 pub(super) fn convert_profile(proto: api::DestinationProfile, port: u16) -> Profile {
     let name = Name::from_str(&proto.fully_qualified_name).ok();
@@ -51,6 +53,9 @@ fn convert_route(
     if let Some(timeout) = orig.timeout {
         set_route_timeout(&mut route, timeout.try_into());
     }
+    if let Some(rate_limit_config) = orig.rate_limiter {
+        set_route_rate_limit(&mut route, rate_limit_config)
+    }
     Some((req_match, route))
 }
 
@@ -88,6 +93,35 @@ fn set_route_timeout(route: &mut http::Route, timeout: Result<Duration, Duration
     }
 }
 
+fn set_route_rate_limit(route: &mut http::Route, rate_limit_config: RateLimiter) {
+    let threshold_count = rate_limit_config.request_threshold_count;
+
+    let time_window : Duration = match rate_limit_config.time_window {
+        Some(pb_time_window) => {
+            match pb_time_window.try_into() {
+                Ok(dur ) => {
+                    dur
+                }
+                Err(negative) => {
+                    warn!("retry_budget ttl negative: {:?}", negative);
+                    Duration::from_secs(10)
+                }
+            }
+        }
+        None => {
+            Duration::from_secs(10)
+        }
+    };
+
+  //let time_window = if(rate_limit_config.time_window.is_some())
+  let burst_percentage = rate_limit_config.burst_percentage ;
+    route.set_rate_limit(RateLimitingConfig{
+        request_threshold_count: threshold_count,
+        time_window: Some(time_window),
+        burst_percentage
+    }.clone())
+}
+
 fn convert_req_match(orig: api::RequestMatch) -> Option<http::RequestMatch> {
     let m = match orig.r#match? {
         api::request_match::Match::All(ms) => {
@@ -116,7 +150,7 @@ fn convert_req_match(orig: api::RequestMatch) -> Option<http::RequestMatch> {
             http::RequestMatch::Path(Box::new(re))
         }
         api::request_match::Match::Method(mm) => {
-            let m = mm.r#type.and_then(|m| (&m).try_into().ok())?;
+            let m = mm.r#type.and_then(|m| m.try_into().ok())?;
             http::RequestMatch::Method(m)
         }
     };

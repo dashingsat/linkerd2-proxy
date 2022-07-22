@@ -5,6 +5,9 @@ license = "Apache-2.0"
 edition = "2021"
 publish = false
 
+[features]
+proto = ["linkerd2-proxy-api"]
+
 [dependencies]
 http = "0.2"
 regex = "1"
@@ -16,3 +19,11 @@ lazy_static = "1.4.0"
 governor = "0.4.2"
 nonzero_ext = "0.3.0"
 once_cell= "1.13.0"
+
+[dependencies.linkerd2-proxy-api]
+version = "0.6"
+features = ["http-route", "grpc-route"]
+optional = true
+
+[dev-dependencies]
+maplit = "1"

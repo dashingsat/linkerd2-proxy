@@ -30,7 +30,7 @@ macro_rules! new_svc {
                 protocol: $proto,
                 meta: Arc::new(Meta::Resource {
                     group: "policy.linkerd.io".into(),
-                    kind: "server".into(),
+                    kind: "Server".into(),
                     name: "testsrv".into(),
                 }),
             },
@@ -73,7 +73,7 @@ async fn http_route() {
         kind: "httproute".into(),
         name: "testrt".into(),
     });
-    let (mut svc, _tx) = new_svc!(Protocol::Http1(Arc::new([Route {
+    let (mut svc, tx) = new_svc!(Protocol::Http1(Arc::new([Route {
         hosts: vec![],
         rules: vec![
             Rule {
@@ -87,8 +87,8 @@ async fn http_route() {
                         networks: vec![std::net::IpAddr::from([192, 168, 3, 3]).into()],
                         meta: Arc::new(Meta::Resource {
                             group: "policy.linkerd.io".into(),
-                            kind: "server".into(),
-                            name: "testsaz".into(),
+                            kind: "AuthorizationPolicy".into(),
+                            name: "test".into(),
                         }),
                     }]),
                     filters: vec![],
@@ -109,6 +109,7 @@ async fn http_route() {
         ],
     }])));
 
+    // Test that authorization policies allow requests:
     let rsp = svc
         .call(
             ::http::Request::builder()
@@ -123,6 +124,7 @@ async fn http_route() {
         .expect("permitted");
     assert_eq!(permit.labels.route.route, rmeta);
 
+    // And deny requests:
     assert!(svc
         .call(
             ::http::Request::builder()
@@ -134,6 +136,7 @@ async fn http_route() {
         .expect_err("fails")
         .is::<HttpRouteUnauthorized>());
 
+    // Test that a route must match the request:
     assert!(svc
         .call(
             ::http::Request::builder()
@@ -144,6 +147,97 @@ async fn http_route() {
         .await
         .expect_err("fails")
         .is::<HttpRouteNotFound>());
+
+    // Update all of the policies and then test the same requests to ensure that
+    // the requests are handled differently after an update.
+
+    tx.send(ServerPolicy {
+        meta: Arc::new(Meta::Resource {
+            group: "policy.linkerd.io".into(),
+            kind: "Server".into(),
+            name: "testsrv".into(),
+        }),
+        protocol: Protocol::Http1(Arc::new([Route {
+            hosts: vec![],
+            rules: vec![
+                Rule {
+                    matches: vec![MatchRequest {
+                        method: Some(::http::Method::GET),
+                        ..MatchRequest::default()
+                    }],
+                    policy: Policy {
+                        authorizations: Arc::new([Authorization {
+                            authentication: Authentication::Unauthenticated,
+                            networks: vec![std::net::IpAddr::from([172, 2, 2, 2]).into()],
+                            meta: Arc::new(Meta::Resource {
+                                group: "policy.linkerd.io".into(),
+                                kind: "AuthorizationPolicy".into(),
+                                name: "other".into(),
+                            }),
+                        }]),
+                        filters: vec![],
+                        meta: rmeta.clone(),
+                    },
+                },
+                Rule {
+                    matches: vec![MatchRequest {
+                        method: Some(::http::Method::DELETE),
+                        ..MatchRequest::default()
+                    }],
+                    policy: Policy {
+                        authorizations: Arc::new([Authorization {
+                            authentication: Authentication::Unauthenticated,
+                            networks: vec![std::net::IpAddr::from([192, 168, 3, 3]).into()],
+                            meta: Arc::new(Meta::Resource {
+                                group: "policy.linkerd.io".into(),
+                                kind: "AuthorizationPolicy".into(),
+                                name: "test".into(),
+                            }),
+                        }]),
+                        filters: vec![],
+                        meta: rmeta.clone(),
+                    },
+                },
+            ],
+        }])),
+    })
+    .expect("must send");
+
+    assert!(svc
+        .call(
+            ::http::Request::builder()
+                .body(hyper::Body::default())
+                .unwrap(),
+        )
+        .await
+        .expect_err("fails")
+        .is::<HttpRouteUnauthorized>());
+
+    assert!(svc
+        .call(
+            ::http::Request::builder()
+                .method(::http::Method::POST)
+                .body(hyper::Body::default())
+                .unwrap(),
+        )
+        .await
+        .expect_err("fails")
+        .is::<HttpRouteNotFound>());
+
+    let rsp = svc
+        .call(
+            ::http::Request::builder()
+                .method(::http::Method::DELETE)
+                .body(hyper::Body::default())
+                .unwrap(),
+        )
+        .await
+        .expect("serves");
+    let permit = rsp
+        .extensions()
+        .get::<HttpRoutePermit>()
+        .expect("permitted");
+    assert_eq!(permit.labels.route.route, rmeta);
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -168,8 +262,8 @@ async fn http_filter_header() {
                     networks: vec![std::net::IpAddr::from([192, 168, 3, 3]).into()],
                     meta: Arc::new(Meta::Resource {
                         group: "policy.linkerd.io".into(),
-                        kind: "server".into(),
-                        name: "testsaz".into(),
+                        kind: "AuthorizatoinPolicy".into(),
+                        name: "test".into(),
                     }),
                 }]),
                 filters: vec![Filter::RequestHeaders(filter::ModifyHeader {
@@ -231,8 +325,8 @@ async fn http_filter_inject_failure() {
                     networks: vec![std::net::IpAddr::from([192, 168, 3, 3]).into()],
                     meta: Arc::new(Meta::Resource {
                         group: "policy.linkerd.io".into(),
-                        kind: "server".into(),
-                        name: "testsaz".into(),
+                        kind: "AuthorizatoinPolicy".into(),
+                        name: "test".into(),
                     }),
                 }]),
                 filters: vec![Filter::InjectFailure(filter::InjectFailure {
@@ -387,8 +481,8 @@ async fn grpc_route() {
                         networks: vec![std::net::IpAddr::from([192, 168, 3, 3]).into()],
                         meta: Arc::new(Meta::Resource {
                             group: "policy.linkerd.io".into(),
-                            kind: "server".into(),
-                            name: "testsaz".into(),
+                            kind: "AuthorizationPolicy".into(),
+                            name: "test".into(),
                         }),
                     }]),
                     filters: vec![],
@@ -485,8 +579,8 @@ async fn grpc_filter_header() {
                     networks: vec![std::net::IpAddr::from([192, 168, 3, 3]).into()],
                     meta: Arc::new(Meta::Resource {
                         group: "policy.linkerd.io".into(),
-                        kind: "server".into(),
-                        name: "testsaz".into(),
+                        kind: "AuthorizatoinPolicy".into(),
+                        name: "test".into(),
                     }),
                 }]),
                 filters: vec![Filter::RequestHeaders(http::filter::ModifyHeader {
@@ -558,8 +652,8 @@ async fn grpc_filter_inject_failure() {
                     networks: vec![std::net::IpAddr::from([192, 168, 3, 3]).into()],
                     meta: Arc::new(Meta::Resource {
                         group: "policy.linkerd.io".into(),
-                        kind: "server".into(),
-                        name: "testsaz".into(),
+                        kind: "AuthorizatoinPolicy".into(),
+                        name: "test".into(),
                     }),
                 }]),
                 filters: vec![Filter::InjectFailure(filter::InjectFailure {
