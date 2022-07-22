@@ -30,33 +30,39 @@ pub struct Configuration {
 
 impl<T: Clone> RateLimiter<T> {
     pub fn apply(&self, path: &str) -> Option<T> {
-        if !Self::check_for_rate_limiting(&self.configuration, path, Duration::from_secs(1), 1, 60, "service") {
+        if !Self::check_for_rate_limiting(path) {
            return Some(self.response.clone())
         }
         None
     }
 
-    fn check_for_rate_limiting(_configuration: &Configuration, path: &str,
-                               time_window: Duration, threshold_count: i32, burst_percentage: i32, service: &str) -> bool {
-        let rate_limiter_key  = format!("{}_{}", service, path);
-        let rate_limiter_key_clone = rate_limiter_key.clone();
-        if RATELIMITER_CACHE.lock().unwrap().get(&rate_limiter_key ).is_none() {
-            let rate_limiter = Self::create_rate_limiter(time_window, threshold_count, burst_percentage);
-            RATELIMITER_CACHE.lock().unwrap().insert(rate_limiter_key , rate_limiter);
+    fn check_for_rate_limiting(path: &str) -> bool {
+        let rate_limiter_key  = path.to_string();
+
+        if RATELIMITER_CACHE.lock().unwrap().get("default" ).is_none() {
+            let default_quota = Quota::with_period(Duration::from_secs(1))
+                .unwrap();
+            RATELIMITER_CACHE.lock().unwrap().insert("default".parse().unwrap(), GovernorRateLimiter::keyed(default_quota));
         }
-        let rate_limiter_check = RATELIMITER_CACHE.lock().unwrap().get(&rate_limiter_key_clone ).unwrap().check_key(&rate_limiter_key_clone);
-        Ok(()) == rate_limiter_check
+
+        if RATELIMITER_CACHE.lock().unwrap().get(&rate_limiter_key).is_none() {
+            RATELIMITER_CACHE.lock().unwrap().get("default").unwrap().check_key(&rate_limiter_key) == Ok(())
+        } else {
+            RATELIMITER_CACHE.lock().unwrap().get(&rate_limiter_key).unwrap().check_key(&rate_limiter_key) == Ok(())
+        }
     }
 
-    fn create_rate_limiter(time_window: Duration, threshold_count: i32, burst_percentage: i32)
-                           -> GovernorRateLimiter<String, DefaultKeyedStateStore<String>, DefaultClock>
+    pub fn create_rate_limiter(time_window: Duration, threshold_count: i32, burst_percentage: i32, path: &str)
     {
-        let time_window_in_secs = time_window.as_secs();
-        //let max_burst = nonzero!(((burst_percentage as u32)/100)*(*&threshold_count as u32));
-        let quota = Quota::with_period(Duration::from_secs(time_window_in_secs/(threshold_count as u64)))
-            .unwrap();
-        //.allow_burst(max_burst);
-        GovernorRateLimiter::keyed(quota)
+        let rate_limiter_key = path.to_string();
+        if RATELIMITER_CACHE.lock().unwrap().get(&rate_limiter_key ).is_none() {
+            let time_window_in_secs = time_window.as_secs();
+            //let max_burst = nonzero!(((burst_percentage as u32)/100)*(*&threshold_count as u32));
+            let quota = Quota::with_period(Duration::from_secs(time_window_in_secs/(threshold_count as u64)))
+                .unwrap();
+            //.allow_burst(max_burst);
+            RATELIMITER_CACHE.lock().unwrap().insert(rate_limiter_key , GovernorRateLimiter::keyed(quota));
+        }
     }
 }
 
@@ -64,8 +70,6 @@ lazy_static! {
     static ref RATELIMITER_CACHE:
     Mutex<HashMap<String, GovernorRateLimiter<String, DefaultKeyedStateStore<String>, DefaultClock>>> = Mutex::new(HashMap::new());
 }
-
-
 
 // impl PartialEq for Configuration {
 //     fn eq(&self, other: &Self) -> bool {
