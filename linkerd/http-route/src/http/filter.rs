@@ -7,7 +7,7 @@ pub use self::{
     inject_failure::{Distribution, FailureResponse, InjectFailure},
     modify_header::ModifyHeader,
     redirect::{InvalidRedirect, RedirectRequest, Redirection},
-    rate_limiter::{RateLimiter,FailureResponse as RateLimiterFailureResponse, Configuration as RateLimitConfiguration},
+    rate_limiter::{RateLimiter,FailureResponse as RateLimiterFailureResponse, Configuration as RateLimitConfiguration, create_rate_limiter},
 };
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]

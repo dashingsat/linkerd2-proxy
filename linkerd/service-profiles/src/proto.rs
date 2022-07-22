@@ -8,6 +8,7 @@ use std::{str::FromStr, sync::Arc, time::Duration};
 use linkerd2_proxy_api::destination::RateLimiter;
 use tower::retry::budget::Budget;
 use tracing::warn;
+use linkerd_http_route::http::filter::create_rate_limiter;
 use crate::http::{RateLimitingConfig, Route};
 
 pub(super) fn convert_profile(proto: api::DestinationProfile, port: u16) -> Profile {
@@ -27,6 +28,7 @@ pub(super) fn convert_profile(proto: api::DestinationProfile, port: u16) -> Prof
         let labels = std::collections::HashMap::new();
         resolve::to_addr_meta(e, &labels)
     });
+    create_rate_limiter(Duration::from_secs(1),1,5,"abc");
     Profile {
         addr: name.map(move |n| LogicalAddr(NameAddr::from((n, port)))),
         http_routes,

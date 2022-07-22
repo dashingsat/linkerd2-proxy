@@ -28,18 +28,7 @@ pub struct Configuration {
     pub duration: Duration
 }
 
-pub fn create_rate_limiter(time_window: Duration, threshold_count: i32, burst_percentage: i32, path: &str)
-{
-    let rate_limiter_key = path.to_string();
-    if RATELIMITER_CACHE.lock().unwrap().get(&rate_limiter_key ).is_none() {
-        let time_window_in_secs = time_window.as_secs();
-        //let max_burst = nonzero!(((burst_percentage as u32)/100)*(*&threshold_count as u32));
-        let quota = Quota::with_period(Duration::from_secs(time_window_in_secs/(threshold_count as u64)))
-            .unwrap();
-        //.allow_burst(max_burst);
-        RATELIMITER_CACHE.lock().unwrap().insert(rate_limiter_key , GovernorRateLimiter::keyed(quota));
-    }
-}
+
 
 impl<T: Clone> RateLimiter<T> {
     pub fn apply(&self, path: &str) -> Option<T> {
@@ -48,6 +37,8 @@ impl<T: Clone> RateLimiter<T> {
         }
         None
     }
+
+
 
     fn check_for_rate_limiting(path: &str) -> bool {
         let rate_limiter_key  = path.to_string();
@@ -63,6 +54,19 @@ impl<T: Clone> RateLimiter<T> {
         } else {
             RATELIMITER_CACHE.lock().unwrap().get(&rate_limiter_key).unwrap().check_key(&rate_limiter_key) == Ok(())
         }
+    }
+}
+
+pub fn create_rate_limiter(time_window: Duration, threshold_count: i32, burst_percentage: i32, path: &str)
+{
+    let rate_limiter_key = path.to_string();
+    if RATELIMITER_CACHE.lock().unwrap().get(&rate_limiter_key ).is_none() {
+        let time_window_in_secs = time_window.as_secs();
+        //let max_burst = nonzero!(((burst_percentage as u32)/100)*(*&threshold_count as u32));
+        let quota = Quota::with_period(Duration::from_secs(time_window_in_secs/(threshold_count as u64)))
+            .unwrap();
+        //.allow_burst(max_burst);
+        RATELIMITER_CACHE.lock().unwrap().insert(rate_limiter_key , GovernorRateLimiter::keyed(quota));
     }
 }
 
