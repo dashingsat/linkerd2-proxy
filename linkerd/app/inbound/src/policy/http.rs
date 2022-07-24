@@ -11,8 +11,11 @@ use linkerd_app_core::{
     transport::{ClientAddr, OrigDstAddr, Remote},
     Error, Result,
 };
+
 use linkerd_server_policy::{grpc, http, route::RouteMatch};
 use std::{sync::Arc, task};
+use linkerd_server_policy::http::filter::{check_for_rate_limiting, default_err_message};
+
 //use linkerd_app_core::svc::Param;
 //use linkerd_server_policy::http::Filter;
 
@@ -266,6 +269,13 @@ fn apply_http_filters<B>(
     req: &mut ::http::Request<B>,
 ) -> Result<()> {
     // TODO Do any metrics apply here?
+    if !check_for_rate_limiting(req.uri().path()) {
+        return Err(HttpRouteInjectedFailure {
+            status: default_err_message(),
+            message: "Failed due to rate limiting".into(),
+        }.into());
+    }
+
     for filter in &route.filters {
         match filter {
             http::Filter::InjectFailure(fail) => {
@@ -273,12 +283,6 @@ fn apply_http_filters<B>(
                     return Err(HttpRouteInjectedFailure { status, message }.into());
                 }
             },
-
-        /*Filter::RateLimiter(fail) => {
-            if let Some(http::filter::RateLimiterFailureResponse { status, message }) = fail.apply(req.uri().path()) {
-                return Err(HttpRouteInjectedFailure { status, message }.into());
-            }
-        },*/
 
             http::Filter::RateLimiter(fail) => match fail.apply(req.uri().path()) {
                 Some(http::filter::RateLimiterFailureResponse { status, message }) => {

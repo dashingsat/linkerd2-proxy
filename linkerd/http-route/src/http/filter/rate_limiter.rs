@@ -7,6 +7,7 @@ use governor::clock::DefaultClock;
 use governor::state::keyed::DefaultKeyedStateStore;
 use nonzero_ext::nonzero;
 use std::sync::Mutex;
+use http::StatusCode;
 
 /// A filter that responds with an error at a predictable rate.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -31,18 +32,12 @@ pub struct Configuration {
 
 impl<T: Clone> RateLimiter<T> {
     pub fn apply(&self, path: &str) -> Option<T> {
-        if !Self::check_for_rate_limiting(path) {
-           return Some(self.response.clone())
-        }
         None
     }
+    fn check_for_rate_limiting_inner(path: &str) -> bool {
+        let rate_limiter_key = path.to_string();
 
-
-
-    fn check_for_rate_limiting(path: &str) -> bool {
-        let rate_limiter_key  = path.to_string();
-
-        if RATELIMITER_CACHE.lock().unwrap().get("default" ).is_none() {
+        if RATELIMITER_CACHE.lock().unwrap().get("default").is_none() {
             let default_quota = Quota::with_period(Duration::from_secs(1))
                 .unwrap();
             RATELIMITER_CACHE.lock().unwrap().insert("default".parse().unwrap(), GovernorRateLimiter::keyed(default_quota));
@@ -53,6 +48,26 @@ impl<T: Clone> RateLimiter<T> {
         } else {
             RATELIMITER_CACHE.lock().unwrap().get(&rate_limiter_key).unwrap().check_key(&rate_limiter_key) == Ok(())
         }
+    }
+}
+
+pub fn default_err_message() -> StatusCode {
+    StatusCode::TOO_MANY_REQUESTS
+}
+
+pub fn check_for_rate_limiting(path: &str) -> bool {
+    let rate_limiter_key = path.to_string();
+
+    if RATELIMITER_CACHE.lock().unwrap().get("default").is_none() {
+        let default_quota = Quota::with_period(Duration::from_secs(1))
+            .unwrap();
+        RATELIMITER_CACHE.lock().unwrap().insert("default".parse().unwrap(), GovernorRateLimiter::keyed(default_quota));
+    }
+
+    if RATELIMITER_CACHE.lock().unwrap().get(&rate_limiter_key).is_none() {
+        RATELIMITER_CACHE.lock().unwrap().get("default").unwrap().check_key(&rate_limiter_key) == Ok(())
+    } else {
+        RATELIMITER_CACHE.lock().unwrap().get(&rate_limiter_key).unwrap().check_key(&rate_limiter_key) == Ok(())
     }
 }
 
@@ -73,25 +88,3 @@ lazy_static! {
     static ref RATELIMITER_CACHE:
     Mutex<HashMap<String, GovernorRateLimiter<String, DefaultKeyedStateStore<String>, DefaultClock>>> = Mutex::new(HashMap::new());
 }
-
-// impl PartialEq for Configuration {
-//     fn eq(&self, other: &Self) -> bool {
-//         true
-//     }
-// }
-//
-// impl Hash for Configuration {
-//     fn hash<H: Hasher>(&self, state: &mut H) {
-//         todo!()
-//     }
-// }
-//
-//
-// impl Eq for Configuration {}
-//
-// impl Hash for Distribution {
-//     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-//         self.numerator.hash(state);
-//         self.denominator.hash(state);
-//     }
-
