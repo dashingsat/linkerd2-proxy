@@ -16,6 +16,8 @@ use tracing::{debug, info, trace};
 use try_lock::TryLock;
 use crate::rate_limitter::check_for_rate_limiting;
 
+const RATE_LIMIT_FLAG: &str = "std::env::var(ENV_LOG_LEVEL)";
+
 /// A type inserted into `http::Extensions` to bridge together HTTP Upgrades.
 ///
 /// If the HTTP1 server service detects an upgrade request, this will be
@@ -187,7 +189,9 @@ where
     }
 
     fn call(&mut self, mut req: http::Request<hyper::Body>) -> Self::Future {
-        if !check_for_rate_limiting(req.uri().path()) {
+        let rate_limit_flag = std::env::var(RATE_LIMIT_FLAG).ok()
+            .unwrap_or_else(|| "false".to_string());
+        if rate_limit_flag == "true" && !check_for_rate_limiting(req.uri().path()) {
             let mut res = http::Response::default();
             *res.status_mut() = http::StatusCode::TOO_MANY_REQUESTS;
             return Either::Right(future::ok(res));

@@ -59,7 +59,7 @@ pub fn check_for_rate_limiting(path: &str) -> bool {
     let rate_limiter_key = path.to_string();
 
     if RATELIMITER_CACHE.lock().unwrap().get("default").is_none() {
-        let default_quota = Quota::with_period(Duration::from_secs(1))
+        let default_quota = Quota::with_period(Duration::from_secs(5))
             .unwrap();
         RATELIMITER_CACHE.lock().unwrap().insert("default".parse().unwrap(), GovernorRateLimiter::keyed(default_quota));
     }
@@ -77,10 +77,18 @@ pub fn create_rate_limiter(time_window: Duration, threshold_count: u32, burst_pe
     if RATELIMITER_CACHE.lock().unwrap().get(&rate_limiter_key).is_none() {
         let time_window_in_secs = time_window.as_secs();
         //let max_burst = nonzero!(((burst_percentage as u32)/100)*(*&threshold_count as u32));
-        let quota = Quota::with_period(Duration::from_secs(time_window_in_secs / (threshold_count as u64)))
-            .unwrap();
-        //.allow_burst(max_burst);
-        RATELIMITER_CACHE.lock().unwrap().insert(rate_limiter_key, GovernorRateLimiter::keyed(quota));
+        if (threshold_count > *&time_window_in_secs as u32) {
+            let quota = Quota::with_period(Duration::from_millis(time_window_in_secs*1000 / (threshold_count as u64)))
+                .unwrap();
+            //.allow_burst(max_burst);
+            RATELIMITER_CACHE.lock().unwrap().insert(rate_limiter_key, GovernorRateLimiter::keyed(quota));
+        } else {
+            let quota = Quota::with_period(Duration::from_secs(time_window_in_secs / (threshold_count as u64)))
+                .unwrap();
+            //.allow_burst(max_burst);
+            RATELIMITER_CACHE.lock().unwrap().insert(rate_limiter_key, GovernorRateLimiter::keyed(quota));
+        }
+
     }
 }
 

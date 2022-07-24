@@ -284,7 +284,7 @@ fn apply_http_filters<B>(
                 }
             },
 
-            http::Filter::RateLimiter(fail) => match fail.apply(req.uri().path()) {
+            /*http::Filter::RateLimiter(fail) => match fail.apply(req.uri().path()) {
                 Some(http::filter::RateLimiterFailureResponse { status, message }) => {
                     return Err(HttpRouteInjectedFailure { status, message }.into());
                 }
@@ -292,7 +292,7 @@ fn apply_http_filters<B>(
                 None => {
                     tracing::debug!("Ignoring irrelevant redirect");
                 }
-            },
+            },*/
 
             http::Filter::Redirect(redir) => match redir.apply(req.uri(), &r#match) {
                 Ok(Some(http::filter::Redirection { status, location })) => {
