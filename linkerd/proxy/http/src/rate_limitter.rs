@@ -25,34 +25,32 @@ pub struct FailureResponse {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Configuration {
     pub threshold: i32,
-    pub duration: Duration
+    pub duration: Duration,
 }
 
 
 impl<T: Clone> RateLimiter<T> {
     pub fn apply(&self, path: &str) -> Option<T> {
-        if !Self::check_for_rate_limiting(path) {
-           return Some(self.response.clone())
+        if !check_for_rate_limiting(path) {
+            return Some(self.response.clone())
         }
         None
     }
+}
 
+pub fn check_for_rate_limiting(path: &str) -> bool {
+    let rate_limiter_key = path.to_string();
 
+    if RATELIMITER_CACHE.lock().unwrap().get("default").is_none() {
+        let default_quota = Quota::with_period(Duration::from_secs(1))
+            .unwrap();
+        RATELIMITER_CACHE.lock().unwrap().insert("default".parse().unwrap(), GovernorRateLimiter::keyed(default_quota));
+    }
 
-    fn check_for_rate_limiting(path: &str) -> bool {
-        let rate_limiter_key  = path.to_string();
-
-        if RATELIMITER_CACHE.lock().unwrap().get("default" ).is_none() {
-            let default_quota = Quota::with_period(Duration::from_secs(1))
-                .unwrap();
-            RATELIMITER_CACHE.lock().unwrap().insert("default".parse().unwrap(), GovernorRateLimiter::keyed(default_quota));
-        }
-
-        if RATELIMITER_CACHE.lock().unwrap().get(&rate_limiter_key).is_none() {
-            RATELIMITER_CACHE.lock().unwrap().get("default").unwrap().check_key(&rate_limiter_key) == Ok(())
-        } else {
-            RATELIMITER_CACHE.lock().unwrap().get(&rate_limiter_key).unwrap().check_key(&rate_limiter_key) == Ok(())
-        }
+    if RATELIMITER_CACHE.lock().unwrap().get(&rate_limiter_key).is_none() {
+        RATELIMITER_CACHE.lock().unwrap().get("default").unwrap().check_key(&rate_limiter_key) == Ok(())
+    } else {
+        RATELIMITER_CACHE.lock().unwrap().get(&rate_limiter_key).unwrap().check_key(&rate_limiter_key) == Ok(())
     }
 }
 
@@ -74,24 +72,4 @@ lazy_static! {
     Mutex<HashMap<String, GovernorRateLimiter<String, DefaultKeyedStateStore<String>, DefaultClock>>> = Mutex::new(HashMap::new());
 }
 
-// impl PartialEq for Configuration {
-//     fn eq(&self, other: &Self) -> bool {
-//         true
-//     }
-// }
-//
-// impl Hash for Configuration {
-//     fn hash<H: Hasher>(&self, state: &mut H) {
-//         todo!()
-//     }
-// }
-//
-//
-// impl Eq for Configuration {}
-//
-// impl Hash for Distribution {
-//     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-//         self.numerator.hash(state);
-//         self.denominator.hash(state);
-//     }
 

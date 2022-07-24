@@ -255,7 +255,7 @@ mod cross_version {
         let test = TestBuilder::new(version)
             .with_profile_route(
                 controller::route()
-                    .request_any()
+                    .request_path("/1.0/sleep")
                     .response_failure(500..600)
                     .retryable(true)
                     .rate_limiter(5,10)
@@ -266,7 +266,7 @@ mod cross_version {
 
         let client = &test.client;
         let req = client
-            .request_builder("/0.5")
+            .request_builder("/1.0/sleep")
             .method(http::Method::POST)
             .body("req has a body".into())
             .unwrap();

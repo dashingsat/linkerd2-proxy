@@ -266,7 +266,6 @@ fn apply_http_filters<B>(
     req: &mut ::http::Request<B>,
 ) -> Result<()> {
     // TODO Do any metrics apply here?
-    let p = req.uri().path();
     for filter in &route.filters {
         match filter {
             http::Filter::InjectFailure(fail) => {

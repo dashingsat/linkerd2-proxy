@@ -14,6 +14,7 @@ use std::task::{Context, Poll};
 use tracing::instrument::Instrument;
 use tracing::{debug, info, trace};
 use try_lock::TryLock;
+use crate::rate_limitter::check_for_rate_limiting;
 
 /// A type inserted into `http::Extensions` to bridge together HTTP Upgrades.
 ///
@@ -186,6 +187,13 @@ where
     }
 
     fn call(&mut self, mut req: http::Request<hyper::Body>) -> Self::Future {
+        if !check_for_rate_limiting(req.uri().path()) {
+            let mut res = http::Response::default();
+            *res.status_mut() = http::StatusCode::TOO_MANY_REQUESTS;
+            return Either::Right(future::ok(res));
+        }
+
+
         // Should this rejection happen later in the Service stack?
         //
         // Rejecting here means telemetry doesn't record anything about it...
@@ -197,6 +205,7 @@ where
             *res.status_mut() = http::StatusCode::BAD_REQUEST;
             return Either::Right(future::ok(res));
         }
+
 
         let upgrade = if h1::wants_upgrade(&req) {
             trace!("server request wants HTTP/1.1 upgrade");

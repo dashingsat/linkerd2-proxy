@@ -388,16 +388,18 @@ async fn http_filter_rate_limiter() {
                         name: "testsaz".into(),
                     }),
                 }]),
-                filters: vec![Filter::RateLimiter(filter::RateLimiter {
-                    configuration: filter::RateLimitConfiguration{
-                        threshold: 0,
-                        duration: Duration::from_secs(1)
-                    },
-                    response: filter::RateLimiterFailureResponse {
-                        status: ::http::StatusCode::TOO_MANY_REQUESTS,
-                        message: "oopsie".into(),
-                    },
-                })],
+                filters: vec![
+                    Filter::RateLimiter(filter::RateLimiter {
+                        configuration: filter::RateLimitConfiguration {
+                            threshold: 0,
+                            duration: Duration::from_secs(1),
+                        },
+                        response: filter::RateLimiterFailureResponse {
+                            status: ::http::StatusCode::TOO_MANY_REQUESTS,
+                            message: "oopsie".into(),
+                        },
+                    })
+                ],
                 meta: rmeta.clone(),
             },
         }],

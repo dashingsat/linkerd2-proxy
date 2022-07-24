@@ -6,14 +6,22 @@ use linkerd_proxy_api_resolve::pb as resolve;
 use regex::Regex;
 use std::{str::FromStr, sync::Arc, time::Duration};
 use linkerd2_proxy_api::destination::RateLimiter;
+use linkerd2_proxy_api::destination::request_match::Match;
 use tower::retry::budget::Budget;
 use tracing::warn;
 use linkerd_http_route::http::filter::create_rate_limiter;
 use crate::http::{RateLimitingConfig, Route};
 
+
 pub(super) fn convert_profile(proto: api::DestinationProfile, port: u16) -> Profile {
+    let clone_of_proto = proto.clone();
     let name = Name::from_str(&proto.fully_qualified_name).ok();
     let retry_budget = proto.retry_budget.and_then(convert_retry_budget);
+
+    for orig in clone_of_proto.routes.into_iter() {
+        convert_to_profile_store(orig)
+    }
+
     let http_routes = proto
         .routes
         .into_iter()
@@ -28,7 +36,7 @@ pub(super) fn convert_profile(proto: api::DestinationProfile, port: u16) -> Prof
         let labels = std::collections::HashMap::new();
         resolve::to_addr_meta(e, &labels)
     });
-    create_rate_limiter(Duration::from_secs(1),1,5,"abc");
+
     Profile {
         addr: name.map(move |n| LogicalAddr(NameAddr::from((n, port)))),
         http_routes,
@@ -59,6 +67,40 @@ fn convert_route(
         set_route_rate_limit(&mut route, rate_limit_config)
     }
     Some((req_match, route))
+}
+
+fn convert_to_profile_store(orig: api::Route) {
+    let path = orig.condition.and_then(convert_req_match_for_path);
+
+    match path {
+        Some(data) => {
+            if let Some(rate_limit_config) = orig.rate_limiter {
+                let threshold_count = rate_limit_config.request_threshold_count;
+
+                let time_window: Duration = match rate_limit_config.time_window {
+                    Some(pb_time_window) => {
+                        match pb_time_window.try_into() {
+                            Ok(dur) => {
+                                dur
+                            }
+                            Err(negative) => {
+                                warn!("retry_budget ttl negative: {:?}", negative);
+                                Duration::from_secs(10)
+                            }
+                        }
+                    }
+                    None => {
+                        Duration::from_secs(10)
+                    }
+                };
+
+                let burst_percentage = rate_limit_config.burst_percentage;
+
+                create_rate_limiter(time_window, threshold_count, burst_percentage, data.as_str());
+            }
+        }
+        None => {}
+    }
 }
 
 fn convert_dst_override(orig: api::WeightedDst) -> Option<Target> {
@@ -158,6 +200,17 @@ fn convert_req_match(orig: api::RequestMatch) -> Option<http::RequestMatch> {
     };
 
     Some(m)
+}
+
+fn convert_req_match_for_path(orig: api::RequestMatch) -> Option<String> {
+    match orig.r#match? {
+        Match::Path(api::PathMatch { regex }) => {
+            Some(regex.trim().to_string())
+        }
+        _ => {
+            None
+        }
+    }
 }
 
 fn convert_rsp_class(orig: api::ResponseClass) -> Option<http::ResponseClass> {

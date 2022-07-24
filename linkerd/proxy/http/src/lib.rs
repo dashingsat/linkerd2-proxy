@@ -23,6 +23,7 @@ pub mod timeout;
 pub mod trace;
 pub mod upgrade;
 mod version;
+mod rate_limitter;
 
 pub use self::{
     client_handle::{ClientHandle, SetClientHandle},
