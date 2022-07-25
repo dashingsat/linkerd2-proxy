@@ -1,7 +1,7 @@
 pub mod inject_failure;
 pub mod modify_header;
 pub mod redirect;
-mod rate_limiter;
+pub mod rate_limiter;
 
 pub use self::{
     inject_failure::{Distribution, FailureResponse, InjectFailure},
