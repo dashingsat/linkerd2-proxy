@@ -13,6 +13,11 @@ use linkerd_app_core::{
 };
 use linkerd_server_policy::{grpc, http, route::RouteMatch};
 use std::{sync::Arc, task};
+use std::time::{SystemTime, UNIX_EPOCH};
+use linkerd_server_policy::http::filter::{check_for_rate_limiting, default_err_message};
+
+//use linkerd_app_core::svc::Param;
+//use linkerd_server_policy::http::Filter;
 
 #[cfg(test)]
 mod tests;
@@ -264,6 +269,19 @@ fn apply_http_filters<B>(
     req: &mut ::http::Request<B>,
 ) -> Result<()> {
     // TODO Do any metrics apply here?
+    let time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    if !check_for_rate_limiting(req.uri().path()) {
+        println!("Rate limiting failed with too many requests in filter for path {} at {}", req.uri().path(), time);
+        return Err(HttpRouteInjectedFailure {
+            status: default_err_message(),
+            message: "Failed due to rate limiting".into(),
+        }.into());
+    }
+
+    println!("Rate limiting success in filter for path {} at {}", req.uri().path(), time);
     for filter in &route.filters {
         match filter {
             http::Filter::InjectFailure(fail) => {
