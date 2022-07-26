@@ -56,15 +56,19 @@ pub fn default_err_message() -> StatusCode {
 }
 
 pub fn check_for_rate_limiting(path: &str) -> bool {
-    let allowed_paths = Vec::from(["/ready", "/live", "/metrics"]);
-    if allowed_paths.contains(&path) {
+
+    if path.find("/service").is_none() || path == "/service" {
         return true;
     }
+    /*let allowed_paths = Vec::from(["/ready", "/live", "/metrics"]);
+    if allowed_paths.contains(&path) {
+        return true;
+    }*/
     let rate_limiter_key = path.to_string();
 
     if RATELIMITER_CACHE.lock().unwrap().get("default").is_none() {
-        println!("Creating the Default Rate limitter in filter");
-        let default_quota = Quota::with_period(Duration::from_secs(20))
+        println!("Creating the Default Rate limiter in filter");
+        let default_quota = Quota::with_period(Duration::from_secs(10))
             .unwrap();
         RATELIMITER_CACHE.lock().unwrap().insert("default".parse().unwrap(), GovernorRateLimiter::keyed(default_quota));
     }
