@@ -11,6 +11,7 @@ pub enum Filter {
     Redirect(filter::RedirectRequest),
     RequestHeaders(filter::ModifyHeader),
     InternalError(&'static str),
+    RateLimiter(filter::RateLimiter),
 }
 
 #[inline]

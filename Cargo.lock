@@ -869,7 +869,7 @@ dependencies = [
  "linkerd-server-policy",
  "linkerd-tonic-watch",
  "linkerd-tracing",
- "linkerd2-proxy-api",
+ "linkerd2-proxy-api 0.6.0",
  "once_cell",
  "parking_lot",
  "thiserror",
@@ -898,7 +898,7 @@ dependencies = [
  "linkerd-meshtls",
  "linkerd-metrics",
  "linkerd-tracing",
- "linkerd2-proxy-api",
+ "linkerd2-proxy-api 0.6.2",
  "parking_lot",
  "regex",
  "rustls-pemfile",
@@ -1146,7 +1146,7 @@ name = "linkerd-http-route"
 version = "0.1.0"
 dependencies = [
  "http",
- "linkerd2-proxy-api",
+ "linkerd2-proxy-api 0.6.0",
  "maplit",
  "rand",
  "regex",
@@ -1281,7 +1281,7 @@ dependencies = [
  "linkerd-proxy-core",
  "linkerd-stack",
  "linkerd-tls",
- "linkerd2-proxy-api",
+ "linkerd2-proxy-api 0.6.2",
  "pin-project",
  "prost",
  "tonic",
@@ -1372,7 +1372,7 @@ dependencies = [
  "linkerd-identity",
  "linkerd-metrics",
  "linkerd-stack",
- "linkerd2-proxy-api",
+ "linkerd2-proxy-api 0.6.2",
  "parking_lot",
  "pin-project",
  "thiserror",
@@ -1409,7 +1409,7 @@ dependencies = [
  "linkerd-proxy-http",
  "linkerd-stack",
  "linkerd-tls",
- "linkerd2-proxy-api",
+ "linkerd2-proxy-api 0.6.0",
  "parking_lot",
  "pin-project",
  "prost-types",
@@ -1487,7 +1487,7 @@ dependencies = [
  "http",
  "ipnet",
  "linkerd-http-route",
- "linkerd2-proxy-api",
+ "linkerd2-proxy-api 0.6.0",
  "quickcheck",
  "thiserror",
 ]
@@ -1508,7 +1508,7 @@ dependencies = [
  "linkerd-proxy-api-resolve",
  "linkerd-stack",
  "linkerd-tonic-watch",
- "linkerd2-proxy-api",
+ "linkerd2-proxy-api 0.6.2",
  "pin-project",
  "prost-types",
  "quickcheck",
@@ -1703,6 +1703,21 @@ name = "linkerd2-proxy-api"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6af1b0893c92d50e1af9a9342df7bd1ba73b9ef2abce700e170f2b2d4c84ac72"
+dependencies = [
+ "h2",
+ "http",
+ "ipnet",
+ "prost",
+ "prost-types",
+ "quickcheck",
+ "thiserror",
+ "tonic",
+]
+
+[[package]]
+name = "linkerd2-proxy-api"
+version = "0.6.2"
+source = "git+https://github.com/dashingsat/linkerd2-proxy-api?branch=dashsa/feature/rate_limit"
 dependencies = [
  "h2",
  "http",
@@ -2576,9 +2591,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-core"
-version = "0.1.27"
+version = "0.1.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7709595b8878a4965ce5e87ebf880a7d39c9afc6837721b21a5a816a8117d921"
+checksum = "7b7358be39f2f274f322d2aaed611acc57f382e8eb1e5b48cb9ae30933495ce7"
 dependencies = [
  "once_cell",
  "valuable",
@@ -2607,13 +2622,13 @@ dependencies = [
 
 [[package]]
 name = "tracing-subscriber"
-version = "0.3.11"
+version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4bc28f93baff38037f64e6f43d34cfa1605f27a49c34e8a04c5e78b0babf2596"
+checksum = "3a713421342a5a666b7577783721d3117f1b69a393df803ee17bb73b1e122a59"
 dependencies = [
  "ansi_term",
- "lazy_static",
  "matchers",
+ "once_cell",
  "parking_lot",
  "regex",
  "serde",

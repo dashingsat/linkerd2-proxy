@@ -8,10 +8,12 @@ use std::collections::{HashMap, VecDeque};
 use std::net::IpAddr;
 use std::ops::{Bound, RangeBounds};
 use std::sync::Arc;
+use linkerd2_proxy_api::destination::RateLimiter;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tonic as grpc;
 use tracing::instrument::Instrument;
+
 
 pub fn new() -> Controller {
     Controller::new()
@@ -505,7 +507,7 @@ pub fn destination_does_not_exist() -> pb::Update {
 
 pub fn profile<I>(
     routes: I,
-    retry_budget: Option<pb::RetryBudget>,
+   retry_budget: Option<pb::RetryBudget>,
     dst_overrides: Vec<pb::WeightedDst>,
     fqn: impl Into<String>,
 ) -> pb::DestinationProfile
@@ -608,6 +610,15 @@ impl RouteBuilder {
 
     pub fn timeout(mut self, dur: Duration) -> Self {
         self.route.timeout = Some(dur.into());
+        self
+    }
+
+    pub fn rate_limiter(mut self, request_threshold_count: u32, time_window_in_seconds: u64 ) -> Self{
+        self.route.rate_limiter = Some(RateLimiter{
+            request_threshold_count,
+            time_window: Some(Duration::from_secs(time_window_in_seconds).into()) ,
+            burst_percentage: 0.0
+        });
         self
     }
 }

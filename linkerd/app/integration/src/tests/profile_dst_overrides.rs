@@ -39,17 +39,12 @@ impl Service {
 }
 
 fn profile(stage: &str, overrides: Vec<pb::WeightedDst>) -> pb::DestinationProfile {
-    controller::profile(
-        vec![
-            controller::route()
-                .request_path("/load-profile")
-                .label("load_profile", stage),
-            controller::route().request_any(),
-        ],
-        None,
-        overrides,
-        "apex.svc.cluster.local",
-    )
+    controller::profile(vec![
+        controller::route()
+            .request_path("/load-profile")
+            .label("load_profile", stage),
+        controller::route().request_any(),
+    ], None, overrides, "apex.svc.cluster.local")
 }
 
 async fn wait_for_profile_stage(client: &client::Client, metrics: &client::Client, stage: &str) {

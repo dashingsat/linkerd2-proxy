@@ -13,12 +13,13 @@ use tower::retry::budget::Budget;
 
 pub use self::{proxy::NewProxyRouter, service::NewServiceRouter};
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq,  Hash)]
 pub struct Route {
     labels: Labels,
     response_classes: ResponseClasses,
     retries: Option<Retries>,
     timeout: Option<Duration>,
+    rate_limit_config: Option<RateLimitingConfig>
 }
 
 #[derive(Clone, Debug)]
@@ -34,6 +35,13 @@ pub enum RequestMatch {
 pub struct ResponseClass {
     is_failure: bool,
     match_: ResponseMatch,
+}
+
+#[derive(Clone, Debug)]
+pub struct RateLimitingConfig {
+    pub request_threshold_count: u32,
+    pub time_window: ::core::option::Option<Duration>,
+    pub burst_percentage: f64
 }
 
 #[derive(Clone, Default)]
@@ -84,6 +92,7 @@ impl Route {
             response_classes: ResponseClasses(response_classes.into()),
             retries: None,
             timeout: None,
+            rate_limit_config: None
         }
     }
 
@@ -103,12 +112,20 @@ impl Route {
         self.timeout
     }
 
+    pub fn rate_limit_config(&self) -> Option<&RateLimitingConfig> {
+        self.rate_limit_config.as_ref()
+    }
+
     pub fn set_retries(&mut self, budget: Arc<Budget>) {
         self.retries = Some(Retries { budget });
     }
 
     pub fn set_timeout(&mut self, timeout: Duration) {
         self.timeout = Some(timeout);
+    }
+
+    pub fn set_rate_limit(&mut self, rate_limit_config: RateLimitingConfig) {
+        self.rate_limit_config = Some(rate_limit_config)
     }
 }
 
@@ -160,9 +177,23 @@ impl PartialEq for ResponseClasses {
 
 impl Eq for ResponseClasses {}
 
+impl PartialEq<Self> for RateLimitingConfig {
+    fn eq(&self, other: &Self) -> bool {
+        self.time_window == other.time_window && self.request_threshold_count == other.request_threshold_count
+    }
+}
+
+impl Eq for RateLimitingConfig {}
+
 impl Hash for ResponseClasses {
     fn hash<H: Hasher>(&self, state: &mut H) {
         state.write_usize(Arc::as_ref(&self.0) as *const _ as usize);
+    }
+}
+
+impl Hash for RateLimitingConfig{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+       self.request_threshold_count.hash(state)
     }
 }
 
